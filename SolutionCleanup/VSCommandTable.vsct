@@ -1,0 +1,40 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<CommandTable xmlns="http://schemas.microsoft.com/VisualStudio/2005-10-18/CommandTable" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	<Extern href="stdidcmd.h"/>
+	<Extern href="vsshlids.h"/>
+	<Include href="KnownImageIds.vsct"/>
+	<Include href="VSGlobals.vsct"/>
+	<Commands package="SolutionCleanup">
+		<Groups>
+			<Group guid="SolutionCleanup" id="SolutionCleanupGroup" priority="0x0600">
+				<Parent guid="guidSHLMainMenu" id="IDM_VS_TOOL_PROJWIN"/>
+			</Group>
+		</Groups>
+		<Buttons>
+			<Button guid="SolutionCleanup" id="SolutionCleanupCommand" priority="0xF000" type="Button">
+				<Parent guid="SolutionCleanup" id="SolutionCleanupGroup" />
+				<Icon guid="ImageCatalogGuid" id="CleanData" />
+				<CommandFlag>IconIsMoniker</CommandFlag>
+				<CommandFlag>DefaultInvisible</CommandFlag>
+				<CommandFlag>DynamicVisibility</CommandFlag>
+				<Strings>
+					<ButtonText>Perform Solution Cleanup</ButtonText>
+					<LocCanonicalName>.SolutionCleanup.SolutionCleanupCommand</LocCanonicalName>
+				</Strings>
+			</Button>
+		</Buttons>
+	</Commands>
+	<Symbols>
+		<GuidSymbol name="SolutionCleanup" value="{970ca810-af38-4ea4-82c1-96d70161db8e}">
+			<IDSymbol name="SolutionCleanupGroup" value="0x0001" />
+			<IDSymbol name="SolutionCleanupCommand" value="0x0100" />
+		</GuidSymbol>
+	</Symbols>
+	<VisibilityConstraints>
+		<VisibilityItem guid="SolutionCleanup" id="SolutionCleanupCommand" context="UICONTEXT_SolutionHasSingleProject" />
+		<VisibilityItem guid="SolutionCleanup" id="SolutionCleanupCommand" context="UICONTEXT_SolutionHasMultipleProjects" />
+	</VisibilityConstraints>
+	<KeyBindings>
+		<KeyBinding guid="SolutionCleanup" id="SolutionCleanupCommand" editor="guidVSStd97" key1="VK_DELETE"  mod1="Control Shift"  />
+	</KeyBindings>
+</CommandTable>

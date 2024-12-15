@@ -1,4 +1,4 @@
-﻿using DeleteOutputFolders;
+﻿using SolutionCleanup;
 using System.Reflection;
 using System.Runtime.InteropServices;
 
