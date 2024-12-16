@@ -3,8 +3,10 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using EnvDTE;
-using Microsoft.VisualStudio;
+using Microsoft.VisualStudio.ComponentModelHost;
 using Microsoft.VisualStudio.Shell.Interop;
+using NuGet.SolutionRestoreManager;
+using OutputWindowPane = Community.VisualStudio.Toolkit.OutputWindowPane;
 using Project = Community.VisualStudio.Toolkit.Project;
 using Solution = Community.VisualStudio.Toolkit.Solution;
 
@@ -31,27 +33,32 @@ internal abstract class CleanupCommand<T> : BaseCommand<T> where T : CleanupComm
     private const string TESTRESULTS = "TestResults";
     private const string TRACES = "TraceLogFiles";
 
-    protected const string fmtDeleteAutoCreate = "Removing automatically recreated files as well...";
     private const string fmtDeletedFile = "File {0} has been deleted.";
     private const string fmtDeletedFolder = "Folder {0} has been deleted.";
+    private const string fmtDeletedFolders = "Output folders in {0} have been deleted.";
     private const string fmtDeletingFolder = "Deleting folder {0}...";
     private const string fmtDeletingFolders = "Deleting output folders in {0}...";
     private const string fmtErrorFile = "Error deleting file {0}. {1}";
     private const string fmtErrorFolder = "Error deleting folder {0}. {1}";
-    private const string fmtErrorIsRefresh = "Can't delete {0}. This is a .refresh file.";
-    private const string fmtErrorIsScc = "Can't delete {0}. This file is under source control.";
+    private const string fmtErrorIsRefresh = "Can't delete {0} because it is a .refresh file.";
+    private const string fmtErrorIsScc = "Can't delete {0} because it is under source control.";
     protected const string fmtNoProjects = "There are no projects in {0}.";
 
+    protected const string msgDeleteAutoCreate = "Removing automatically recreated files after {1} seconds...";
+
     protected DTE mDte;
+    protected IVsSolutionRestoreStatusProvider mNuGet;
     protected General mOptions;
-    protected IVsOutputWindowPane mOutput;
+    protected OutputWindowPane mOutput;
+    protected IEnumerable<Project> mProjects;
+    protected Solution mSolution;
 
     #endregion
 
     #region Overrides
 
     /// <summary>
-    /// Gets a handle on the <see cref="DTE" />, <see cref="IVsOutputWindowPane" /> and <see cref="General"/>.
+    /// Gets a handle on the <see cref="DTE"/>, <see cref="IVsOutputWindowPane"/>, <see cref="IVsSolutionRestoreStatusProvider"/> and <see cref="General"/>.
     /// </summary>
     /// <returns>A <see cref="Task" /></returns>
     protected async override Task InitializeCompletedAsync()
@@ -60,7 +67,13 @@ internal abstract class CleanupCommand<T> : BaseCommand<T> where T : CleanupComm
 
         mDte = await Package.GetServiceAsync<DTE, DTE>();
         mOptions = await General.GetLiveInstanceAsync();
-        mOutput = Package.GetOutputPane(VSConstants.SID_SVsGeneralOutputWindowPane, CAPTION);
+        mOutput = await VS.Windows.CreateOutputWindowPaneAsync(CAPTION);
+        var componentModel = await Package.GetServiceAsync<SComponentModel, IComponentModel>();
+
+        if (componentModel is not null)
+        {
+            mNuGet = componentModel.GetService<IVsSolutionRestoreStatusProvider>();
+        }
     }
 
     #endregion
@@ -73,18 +86,17 @@ internal abstract class CleanupCommand<T> : BaseCommand<T> where T : CleanupComm
     /// <param name="msg">The message to display</param>
     /// <returns>A <see cref="Task"/></returns>
     [DebuggerStepThrough()]
-    protected void OutputMessage(string msg)
+    protected async Task OutputMessageAsync(string msg)
     {
-        ThreadHelper.ThrowIfNotOnUIThread();
-        mOutput.Activate();
-        mOutput.OutputString($"{msg}\r\n");
+        await mOutput.ActivateAsync();
+        await mOutput.WriteLineAsync(msg);
     }
 
     /// <summary>
-    /// Returns a collection of folders that can be deleted based on the <see cref="General" /> settings and provided <see cref="Project" />s.
+    /// Returns a collection of folders that can be deleted based on the <see cref="General"/> settings and provided <see cref="Project"/>s.
     /// </summary>
-    /// <param name="projects">The <see cref="Project" />s to search through</param>
-    /// <returns>A <see cref="List{DirectoryInfo}" /></returns>
+    /// <param name="projects">The <see cref="Project"/>s to search through</param>
+    /// <returns>A <see cref="List{DirectoryInfo}"/></returns>
     protected List<DirectoryInfo> GetDeletables(IEnumerable<Project> projects)
     {
         List<DirectoryInfo> deletables = [];
@@ -125,45 +137,45 @@ internal abstract class CleanupCommand<T> : BaseCommand<T> where T : CleanupComm
     /// <summary>
     /// Deletes all files and folders that were marked as deletable.
     /// </summary>
-    /// <param name="solution">The active <see cref="Solution" /></param>
+    /// <param name="solution">The active <see cref="Solution"/></param>
     /// <param name="folders">The <see cref="DirectoryInfo"/>s of the deletable folders</param>
     /// <returns>A <see cref="Task"/></returns>
     protected async Task DeleteFilesAsync(Solution solution, List<DirectoryInfo> folders)
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-        OutputMessage(string.Format(fmtDeletingFolders, solution.FullPath));
+        await OutputMessageAsync(string.Format(fmtDeletingFolders, solution.FullPath));
         foreach (var folder in folders)
         {
             var files = folder.GetFiles(ASTERIX, SearchOption.AllDirectories).ToList();
             var idx = 0;
             var count = files.Count;
 
-            OutputMessage(string.Format(fmtDeletingFolder, folder.FullName));
+            await OutputMessageAsync(string.Format(fmtDeletingFolder, folder.FullName));
             await VS.StatusBar.ShowMessageAsync($"{Vsix.Name} - {folder.Name}");
             foreach (var file in files)
             {
                 if (file.FullName.EndsWith(REFRESH))
                 {
-                    OutputMessage(string.Format(fmtErrorIsRefresh, file.FullName));
+                    await OutputMessageAsync(string.Format(fmtErrorIsRefresh, file.FullName));
                 }
                 else if (mDte.SourceControl.IsItemUnderSCC(file.FullName))
                 {
-                    OutputMessage(string.Format(fmtErrorIsScc, file.FullName));
+                    await OutputMessageAsync(string.Format(fmtErrorIsScc, file.FullName));
                 }
                 else
                 {
                     try
                     {
                         file.Delete();
-                        OutputMessage(string.Format(fmtDeletedFile, file.FullName));
+                        await OutputMessageAsync(string.Format(fmtDeletedFile, file.FullName));
                     }
                     catch (IOException ex)
                     {
-                        OutputMessage(string.Format(fmtErrorFile, file.FullName, ex.Message));
+                        await OutputMessageAsync(string.Format(fmtErrorFile, file.FullName, ex.Message));
                     }
                     catch (Exception ex)
                     {
-                        OutputMessage(string.Format(fmtErrorFile, file.FullName, ex.Message));
+                        await OutputMessageAsync(string.Format(fmtErrorFile, file.FullName, ex.Message));
                     }
                 }
                 await VS.StatusBar.ShowProgressAsync(STATUS, ++idx, count);
@@ -171,43 +183,43 @@ internal abstract class CleanupCommand<T> : BaseCommand<T> where T : CleanupComm
         }
         foreach (var folder in folders)
         {
-            DeleteFolderRecursive(folder);
+            await DeleteFolderRecursiveAsync(folder);
         }
+        await OutputMessageAsync(string.Format(fmtDeletedFolders, solution.FullPath));
     }
 
     /// <summary>
     /// Recursively deletes the contents of the folder and the folder itself, provided that there are no files left.
     /// </summary>
-    /// <param name="folder">The <see cref="DirectoryInfo" /></param>
-    private void DeleteFolderRecursive(DirectoryInfo folder)
+    /// <param name="folder">The <see cref="DirectoryInfo"/></param>
+    private async Task DeleteFolderRecursiveAsync(DirectoryInfo folder)
     {
-        ThreadHelper.ThrowIfNotOnUIThread();
         try
         {
             foreach (var subFolder in folder.GetDirectories(ASTERIX, SearchOption.TopDirectoryOnly))
             {
-                DeleteFolderRecursive(subFolder);
+                await DeleteFolderRecursiveAsync(subFolder);
             }
             if (!folder.GetFiles(ASTERIX, SearchOption.TopDirectoryOnly).Any() && !folder.GetDirectories(ASTERIX, SearchOption.TopDirectoryOnly).Any())
             {
                 try
                 {
                     folder.Delete();
-                    OutputMessage(string.Format(fmtDeletedFolder, folder.FullName));
+                    await OutputMessageAsync(string.Format(fmtDeletedFolder, folder.FullName));
                 }
                 catch (IOException ex)
                 {
-                    OutputMessage(string.Format(fmtErrorFolder, folder.FullName, ex.Message));
+                    await OutputMessageAsync(string.Format(fmtErrorFolder, folder.FullName, ex.Message));
                 }
                 catch (Exception ex)
                 {
-                    OutputMessage(string.Format(fmtErrorFolder, folder.FullName, ex.Message));
+                    await OutputMessageAsync(string.Format(fmtErrorFolder, folder.FullName, ex.Message));
                 }
             }
         }
         catch (Exception ex) // should not happen
         {
-            OutputMessage(string.Format(fmtErrorFolder, folder.FullName, ex.Message));
+            await OutputMessageAsync(string.Format(fmtErrorFolder, folder.FullName, ex.Message));
         }
     }
 

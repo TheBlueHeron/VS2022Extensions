@@ -4,7 +4,7 @@ using System.Runtime.InteropServices;
 namespace SolutionCleanup;
 
 /// <summary>
-/// Provider for the <see cref="BaseOptionPage{General}" /> page.
+/// Provider for the <see cref="BaseOptionPage{General}"/> page.
 /// </summary>
 internal partial class OptionsProvider
 {
@@ -13,7 +13,7 @@ internal partial class OptionsProvider
 }
 
 /// <summary>
-/// <see cref="BaseOptionModel{General}" /> for the settings, provided under 'Tools -> Options -> Environment -> Solution Cleanup'.
+/// <see cref="BaseOptionModel{General}"/> for the settings, provided under 'Tools -> Options -> Environment -> Solution Cleanup'.
 /// </summary>
 public class General : BaseOptionModel<General>
 {
