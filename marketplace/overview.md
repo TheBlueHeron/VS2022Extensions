@@ -12,7 +12,7 @@ Files will be deleted only if they are not under source control.
 Folders will be deleted only if they are empty after cleanup.
 
 Configure Solution Cleanup through Tools -> Options -> Solution Cleanup  
-![Options](images/Options.png)
+![Options](images/options.png)
 
 ### Get started
 

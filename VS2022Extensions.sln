@@ -22,7 +22,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "marketplace", "marketplace"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "images", "images", "{7B1A93CE-0BBA-47D8-AB6B-8E42B3CE05B1}"
 	ProjectSection(SolutionItems) = preProject
-		Options.png = Options.png
+		marketplace\images\options.png = marketplace\images\options.png
 		marketplace\images\output.png = marketplace\images\output.png
 		marketplace\images\toolbar.png = marketplace\images\toolbar.png
 	EndProjectSection
