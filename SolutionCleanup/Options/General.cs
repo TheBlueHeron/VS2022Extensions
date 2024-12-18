@@ -24,12 +24,6 @@ public class General : BaseOptionModel<General>
     public bool RunDefaultCleanup { get; set; } = true;
 
     [Category("General")]
-    [DisplayName("Run on solution close")]
-    [Description("Execute Solution Cleanup before closing the solution.")]
-    [DefaultValue(false)]
-    public bool RunOnClose { get; set; }
-
-    [Category("General")]
     [DisplayName("Delete bin and obj folder")]
     [Description("Delete the bin and obj folders unless they are under source control.")]
     [DefaultValue(true)]

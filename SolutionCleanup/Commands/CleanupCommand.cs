@@ -3,9 +3,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using EnvDTE;
-using Microsoft.VisualStudio.ComponentModelHost;
-using Microsoft.VisualStudio.Shell.Interop;
-using NuGet.SolutionRestoreManager;
 using OutputWindowPane = Community.VisualStudio.Toolkit.OutputWindowPane;
 using Project = Community.VisualStudio.Toolkit.Project;
 using Solution = Community.VisualStudio.Toolkit.Solution;
@@ -33,6 +30,8 @@ internal abstract class CleanupCommand<T> : BaseCommand<T> where T : CleanupComm
     private const string TESTRESULTS = "TestResults";
     private const string TRACES = "TraceLogFiles";
 
+    private const string cmdClean = "Build.CleanSolution";
+    
     private const string fmtDeletedFile = "File {0} has been deleted.";
     private const string fmtDeletedFolder = "Folder {0} has been deleted.";
     private const string fmtDeletedFolders = "Output folders in {0} have been deleted.";
@@ -44,10 +43,12 @@ internal abstract class CleanupCommand<T> : BaseCommand<T> where T : CleanupComm
     private const string fmtErrorIsScc = "Can't delete {0} because it is under source control.";
     protected const string fmtNoProjects = "There are no projects in {0}.";
 
-    protected const string msgDeleteAutoCreate = "Removing automatically recreated files after {1} seconds...";
+    protected const string msgBusy = "An operation is already running.";
+    protected const string msgDeleteAutoCreate = "Removing automatically recreated files after waiting a few seconds...";
+    protected const string msgNoNuGetHandle = "Couldn't get a handle on NuGet restore, so some files may have been restored.";
 
+    protected bool mBusy;
     protected DTE mDte;
-    protected IVsSolutionRestoreStatusProvider mNuGet;
     protected General mOptions;
     protected OutputWindowPane mOutput;
     protected IEnumerable<Project> mProjects;
@@ -58,7 +59,7 @@ internal abstract class CleanupCommand<T> : BaseCommand<T> where T : CleanupComm
     #region Overrides
 
     /// <summary>
-    /// Gets a handle on the <see cref="DTE"/>, <see cref="IVsOutputWindowPane"/>, <see cref="IVsSolutionRestoreStatusProvider"/> and <see cref="General"/>.
+    /// Gets instances of the <see cref="DTE"/>, <see cref="IVsOutputWindowPane"/>, <see cref="IVsSolutionRestoreService"/>, <see cref="IVsSolutionRestoreStatusProvider"/> and <see cref="General"/> objects.
     /// </summary>
     /// <returns>A <see cref="Task" /></returns>
     protected async override Task InitializeCompletedAsync()
@@ -68,12 +69,6 @@ internal abstract class CleanupCommand<T> : BaseCommand<T> where T : CleanupComm
         mDte = await Package.GetServiceAsync<DTE, DTE>();
         mOptions = await General.GetLiveInstanceAsync();
         mOutput = await VS.Windows.CreateOutputWindowPaneAsync(CAPTION);
-        var componentModel = await Package.GetServiceAsync<SComponentModel, IComponentModel>();
-
-        if (componentModel is not null)
-        {
-            mNuGet = componentModel.GetService<IVsSolutionRestoreStatusProvider>();
-        }
     }
 
     #endregion
@@ -217,10 +212,19 @@ internal abstract class CleanupCommand<T> : BaseCommand<T> where T : CleanupComm
                 }
             }
         }
-        catch (Exception ex) // should not happen
+        catch (Exception ex)
         {
-            await OutputMessageAsync(string.Format(fmtErrorFolder, folder.FullName, ex.Message));
+            Debug.WriteLine(string.Format(fmtErrorFolder, folder.FullName, ex.Message));
         }
+    }
+
+    /// <summary>
+    /// Executes the "Build.CleanSolution" command.
+    /// </summary>
+    protected void RunDefaultClean()
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        mDte.ExecuteCommand(cmdClean);
     }
 
     #endregion

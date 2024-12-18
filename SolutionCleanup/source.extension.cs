@@ -8,11 +8,11 @@ namespace SolutionCleanup
     internal sealed partial class Vsix
     {
         public const string Id = "SolutionCleanup.4ea4e356-474f-4450-938e-874aca8d2ba1";
-        public const string Name = "Solution Cleanup";
+        public const string Name = "SolutionCleanup";
         public const string Description = @"Performs a thorough configurable cleanup of all projects in the active solution..";
         public const string Language = "en-US";
         public const string Version = "1.0";
         public const string Author = "Michael Bakker";
-        public const string Tags = "Build, Clean";
+        public const string Tags = "";
     }
 }
