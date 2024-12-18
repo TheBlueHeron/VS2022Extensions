@@ -3,12 +3,13 @@
     <Metadata>
         <Identity Id="SolutionCleanup.4ea4e356-474f-4450-938e-874aca8d2ba1" Version="1.0" Language="en-US" Publisher="Michael Bakker" />
         <DisplayName>SolutionCleanup</DisplayName>
-        <Description xml:space="preserve">Performs a thorough configurable cleanup of all projects in the active solution..</Description>
+        <Description xml:space="preserve">Performs a configurable, thorough cleanup of all projects in the active solution.</Description>
         <MoreInfo>https://github.com/TheBlueHeron/VS2022Extensions</MoreInfo>
-        <GettingStartedGuide>https://github.com/TheBlueHeron/VS2022Extensions</GettingStartedGuide>
+        <GettingStartedGuide>https://github.com/TheBlueHeron/VS2022Extensions/blob/master/README.md#get-started</GettingStartedGuide>
         <ReleaseNotes>https://github.com/TheBlueHeron/VS2022Extensions/releases</ReleaseNotes>
         <Icon>Resources\Icon.png</Icon>
         <PreviewImage>Resources\Icon.png</PreviewImage>
+        <Tags>solution, clean, cleanup</Tags>
     </Metadata>
     <Installation>
         <InstallationTarget Id="Microsoft.VisualStudio.Community" Version="[17.0, 18.0)">
