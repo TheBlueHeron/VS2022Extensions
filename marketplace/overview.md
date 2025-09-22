@@ -1,4 +1,4 @@
-# Solution Cleanup
+# Solution Cleanup (now supports VS 2026 too)
 
 ### Features
 - Clean Bin / Obj folders (including automatically regenerated files)
