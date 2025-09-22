@@ -1,4 +1,4 @@
-# VS2022Extensions
+# VS2022Extensions (Now supports VS 2026 too)
 
 ## Solution Cleanup
 
