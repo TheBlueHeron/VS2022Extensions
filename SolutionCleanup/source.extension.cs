@@ -12,7 +12,7 @@ namespace SolutionCleanup
         public const string Name = "SolutionCleanup";
         public const string Description = @"Performs a configurable, thorough cleanup of all projects in the active solution.";
         public const string Language = "en-US";
-        public const string Version = "1.1";
+        public const string Version = "1.2";
         public const string Author = "Michael Bakker";
         public const string Tags = "solution, clean, cleanup";
         public const bool IsPreview = false;
