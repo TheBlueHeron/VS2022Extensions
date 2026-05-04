@@ -3,9 +3,8 @@ using System.Linq;
 using EnvDTE;
 using Project = Community.VisualStudio.Toolkit.Project;
 using Solution = Community.VisualStudio.Toolkit.Solution;
-using Thread = System.Threading.Thread;
 
-namespace SolutionCleanup;
+namespace SolutionCleanup.Commands;
 
 /// <summary>
 /// The SolutionCleanup command handler.
@@ -26,7 +25,6 @@ internal sealed class SolutionCleanupCommand : CleanupCommand<SolutionCleanupCom
     protected async override Task InitializeCompletedAsync()
     {
         await base.InitializeCompletedAsync();
-        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
     }
 
     /// <summary>
@@ -39,7 +37,6 @@ internal sealed class SolutionCleanupCommand : CleanupCommand<SolutionCleanupCom
         if (!mBusy)
         {
             mBusy = true;
-            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
 
             mSolution = await VS.Solutions.GetCurrentSolutionAsync();
 
@@ -59,12 +56,12 @@ internal sealed class SolutionCleanupCommand : CleanupCommand<SolutionCleanupCom
 
             if (mOptions.RunDefaultCleanup)
             {
-                mDte.Events.BuildEvents.OnBuildDone += OnBuildDone;
-                RunDefaultClean();
+                await SubscribeOnBuildDoneAsync(OnBuildDone);
+                await RunDefaultCleanAsync();
             }
             else
             {
-                RunSolutionClean(mSolution, mProjects);
+                await RunSolutionCleanAsync(mSolution, mProjects);
             }
             mBusy = false;
         }
@@ -87,7 +84,10 @@ internal sealed class SolutionCleanupCommand : CleanupCommand<SolutionCleanupCom
     {
         if (scope == vsBuildScope.vsBuildScopeSolution && action == vsBuildAction.vsBuildActionClean)
         {
-            RunSolutionClean(mSolution, mProjects);
+            ThreadHelper.JoinableTaskFactory.Run(async delegate
+            {
+                await RunSolutionCleanAsync(mSolution, mProjects);
+            });
         }
     }
 
@@ -97,15 +97,14 @@ internal sealed class SolutionCleanupCommand : CleanupCommand<SolutionCleanupCom
     /// <param name="solution">The current <see cref="Solution"/></param>
     /// <param name="projects">The <see cref="IEnumerable{Project}"/> to clean</param>
     /// <returns>A <see cref="Task"/></returns>
-    private void RunSolutionClean(Solution solution, IEnumerable<Project> projects)
+    private async Task RunSolutionCleanAsync(Solution solution, IEnumerable<Project> projects)
     {
-        _ = Task.Run(async () =>
+        await ThreadHelper.JoinableTaskFactory.RunAsync(async () =>
         {
-            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-            mDte.Events.BuildEvents.OnBuildDone -= OnBuildDone;
+            await UnsubscribeOnBuildDoneAsync(OnBuildDone);
             await DeleteFilesAsync(solution, GetDeletables(projects));
             await OutputMessageAsync(msgDeleteAutoCreate);
-            Thread.Sleep(5000);
+            await Task.Delay(5000);
             await DeleteFilesAsync(mSolution, GetDeletables(mProjects));
             await VS.StatusBar.ShowMessageAsync($"{Vsix.Name} - Done!");
         });

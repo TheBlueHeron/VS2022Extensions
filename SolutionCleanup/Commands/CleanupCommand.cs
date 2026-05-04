@@ -7,7 +7,7 @@ using OutputWindowPane = Community.VisualStudio.Toolkit.OutputWindowPane;
 using Project = Community.VisualStudio.Toolkit.Project;
 using Solution = Community.VisualStudio.Toolkit.Solution;
 
-namespace SolutionCleanup;
+namespace SolutionCleanup.Commands;
 
 /// <summary>
 /// Base class for the cleanup commands.
@@ -83,8 +83,43 @@ internal abstract class CleanupCommand<T> : BaseCommand<T> where T : CleanupComm
     [DebuggerStepThrough()]
     protected async Task OutputMessageAsync(string msg)
     {
-        await mOutput.ActivateAsync();
-        await mOutput.WriteLineAsync(msg);
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+        try
+        {
+            await mOutput.ActivateAsync();
+            await mOutput.WriteLineAsync(msg);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Checks whether the given file is under source control. Always switches to the main thread first.
+    /// </summary>
+    protected async System.Threading.Tasks.Task<bool> IsUnderSccAsync(string filePath)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+        return mDte.SourceControl.IsItemUnderSCC(filePath);
+    }
+
+    /// <summary>
+    /// Unsubscribes the given handler from the BuildEvents.OnBuildDone event. Always switches to the main thread first.
+    /// </summary>
+    protected async Task UnsubscribeOnBuildDoneAsync(_dispBuildEvents_OnBuildDoneEventHandler handler)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+        mDte.Events.BuildEvents.OnBuildDone -= handler;
+    }
+
+    /// <summary>
+    /// Subscribes the given handler to the BuildEvents.OnBuildDone event. Always switches to the main thread first.
+    /// </summary>
+    protected async Task SubscribeOnBuildDoneAsync(_dispBuildEvents_OnBuildDoneEventHandler handler)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+        mDte.Events.BuildEvents.OnBuildDone += handler;
     }
 
     /// <summary>
@@ -137,7 +172,6 @@ internal abstract class CleanupCommand<T> : BaseCommand<T> where T : CleanupComm
     /// <returns>A <see cref="Task"/></returns>
     protected async Task DeleteFilesAsync(Solution solution, List<DirectoryInfo> folders)
     {
-        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
         await OutputMessageAsync(string.Format(fmtDeletingFolders, solution.FullPath));
         foreach (var folder in folders)
         {
@@ -146,14 +180,17 @@ internal abstract class CleanupCommand<T> : BaseCommand<T> where T : CleanupComm
             var count = files.Count;
 
             await OutputMessageAsync(string.Format(fmtDeletingFolder, folder.FullName));
+
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
             await VS.StatusBar.ShowMessageAsync($"{Vsix.Name} - {folder.Name}");
+
             foreach (var file in files)
             {
                 if (file.FullName.EndsWith(REFRESH))
                 {
                     await OutputMessageAsync(string.Format(fmtErrorIsRefresh, file.FullName));
                 }
-                else if (mDte.SourceControl.IsItemUnderSCC(file.FullName))
+                else if (await IsUnderSccAsync(file.FullName))
                 {
                     await OutputMessageAsync(string.Format(fmtErrorIsScc, file.FullName));
                 }
@@ -173,6 +210,8 @@ internal abstract class CleanupCommand<T> : BaseCommand<T> where T : CleanupComm
                         await OutputMessageAsync(string.Format(fmtErrorFile, file.FullName, ex.Message));
                     }
                 }
+
+                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
                 await VS.StatusBar.ShowProgressAsync(STATUS, ++idx, count);
             }
         }
@@ -221,9 +260,9 @@ internal abstract class CleanupCommand<T> : BaseCommand<T> where T : CleanupComm
     /// <summary>
     /// Executes the "Build.CleanSolution" command.
     /// </summary>
-    protected void RunDefaultClean()
+    protected async Task RunDefaultCleanAsync()
     {
-        ThreadHelper.ThrowIfNotOnUIThread();
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
         mDte.ExecuteCommand(cmdClean);
     }
 
